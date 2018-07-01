@@ -1,0 +1,9 @@
+{% extends "main.html" %}
+{% block content %}
+{% include "header.html" %}
+<h1>{{item.name}}</h1>
+<p>{{item.description}}</p>
+<a href="{{url_for('Edit_item',cat_name=category.name,item_name=item.name)}}">Edit</a>
+<a href="delete/">Delete</a>
+
+{% endblock %}
