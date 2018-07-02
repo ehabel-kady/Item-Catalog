@@ -310,9 +310,9 @@ def Edit_item(cat_name,item_name):
         session.add(item)
         session.commit()
         flash('Item Successfully Edited')
-        return redirect(url_for('Display_Items', cat_name=category.name))
+        return redirect(url_for('Display_Items', cat_name=cat_name))
     else:
-        return render_template('edititem.html', item=item)
+        return render_template('edititem.html',category=category, item=item)
 @app.route('/catalog/<cat_name>/items/<item_name>/delete/',methods=['GET','POST'])
 def Delete_item(cat_name,item_name):
     # if 'username' not in login_session:
