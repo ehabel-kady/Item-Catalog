@@ -21,26 +21,26 @@ Base.metadata.bind = engine
 
 DBSession = sessionmaker(bind=engine)
 session = DBSession()
-def create_user(login_session):
-    nuser = User(name=login_session['username'], email=login_session[
-        'email'])
-    session.add(nuser)
-    session.commit()
-    user = session.query(User).filter_by(email=login_session['email']).one()
-    return user.id
+# def create_user(login_session):
+#     nuser = User(name=login_session['username'], email=login_session[
+#         'email'])
+#     session.add(nuser)
+#     session.commit()
+#     user = session.query(User).filter_by(email=login_session['email']).one()
+#     return user.id
 
 
-def get_user_info(user_id):
-    user = session.query(User).filter_by(id=user_id).one()
-    return user
+# def get_user_info(user_id):
+#     user = session.query(User).filter_by(id=user_id).one()
+#     return user
 
 
-def get_user_id(u_email):
-    try:
-        user = session.query(User).filter_by(email=u_email).one()
-        return user.id
-    except:
-        return None
+# def get_user_id(u_email):
+#     try:
+#         user = session.query(User).filter_by(email=u_email).one()
+#         return user.id
+#     except:
+#         return None
 
 
 
@@ -135,7 +135,7 @@ def fbdisconnect():
     result = h.request(url, 'DELETE')[1]
     return "you have been logged out"
 
-@app.route('/gconnect/', methods=['POST'])
+@app.route('/gconnect', methods=['POST'])
 def gconnect():
     # Validate state token
     if request.args.get('state') != login_session['state']:
@@ -187,8 +187,9 @@ def gconnect():
     stored_access_token = login_session.get('access_token')
     stored_gplus_id = login_session.get('gplus_id')
     if stored_access_token is not None and gplus_id == stored_gplus_id:
-        response = make_response(json.dumps('Current user is already connected.'),
-                                 200)
+        response = make_response(json.dumps(
+            'Current user is already connected.'),
+            200)
         response.headers['Content-Type'] = 'application/json'
         return response
 
@@ -206,39 +207,81 @@ def gconnect():
     login_session['username'] = data['name']
     login_session['picture'] = data['picture']
     login_session['email'] = data['email']
-    u_id = get_user_id(login_session['email'])
 
-    if not u_id:
-        u_id = create_user(login_session)
-    login_session['user_id'] = u_id
+    user_id = getUserID(login_session['email'])
+    if not user_id:
+        user_id = createUser(login_session)
+    login_session['user_id'] = user_id
 
-    return "done"+login_session['username']
+    output = ''
+    output += '<h1>Welcome, '
+    output += login_session['username']
+    output += '!</h1>'
+    output += '<img src="'
+    output += login_session['picture']
+    flash("you are now logged in as %s" % login_session['username'])
+    print "done!"
+    return output
+
+    # DISCONNECT - Revoke a current user's token and reset their login_session
 
 
-@app.route('/gdisconnect/')
+# Used to create user and stored in Users table on login
+def createUser(login_session):
+    newUser = User(
+        name=login_session['username'],
+        email=login_session['email'],
+        picture=login_session['picture'])
+    session.add(newUser)
+    session.commit()
+    creted_user_id = session.query(User).filter_by(
+        email=login_session['email']).one()
+    return creted_user_id.id
+
+
+# Returns object of type User
+def getUserInfo(user_id):
+    user = session.query(User).filter_by(id=user_id).one()
+    return user
+
+
+# Returns user id if email existed in users table
+def getUserID(email):
+    try:
+        user = session.query(User).filter_by(email=email).one()
+        return user.id
+    except:
+        return None
+
+
+@app.route('/gdisconnect')
 def gdisconnect():
-    # Only disconnect a connected user.
     access_token = login_session.get('access_token')
     if access_token is None:
-        response = make_response(
-            json.dumps('Current user not connected.'), 401)
+        print 'Access Token is None'
+        response = make_response(json.dumps('Current user not connected'), 401)
         response.headers['Content-Type'] = 'application/json'
         return response
-    url = 'https://accounts.google.com/o/oauth2/revoke?token=%s' % access_token
+    print 'In gdisconnect access token is %s', access_token
+    print 'User name is: '
+    print login_session['username']
+    url = 'https://accounts.google.com/o/oauth2/revoke?token=%s' % login_session['access_token']        # NOQA
     h = httplib2.Http()
     result = h.request(url, 'GET')[0]
+    print 'result is '
+    print result
     if result['status'] == '200':
-        response = make_response(json.dumps('Successfully disconnected.'), 200)
-        response.headers['Content-Type'] = 'application/json'
-        return response
+        del login_session['access_token']
+        del login_session['gplus_id']
+        del login_session['username']
+        del login_session['email']
+        del login_session['picture']
+        return redirect(url_for('Display_categories'))
     else:
-        response = make_response(json.dumps(
-            'Failed to revoke token for given user.', 400))
+        response = make_response(
+            json.dumps('Failed to revoke token for given user.', 400))
         response.headers['Content-Type'] = 'application/json'
         return response
-
-
-
 @app.route('/logout/')
 def logout():
     if 'username' in login_session:
